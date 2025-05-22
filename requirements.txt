@@ -1,8 +1,6 @@
 streamlit
+geopandas
 pandas
-numpy
+openpyxl
 folium
 streamlit-folium
-unidecode
-requests
-openpyxl
