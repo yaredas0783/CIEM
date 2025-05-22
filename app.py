@@ -1,88 +1,68 @@
 import streamlit as st
+import geopandas as gpd
 import pandas as pd
 import folium
 from streamlit_folium import st_folium
-import requests
-import unidecode
 
-# --------- Configuración de la página ----------
-st.set_page_config(page_title="Mapa de Mortalidad Materna en Costa Rica", layout="wide")
-st.title("📊 Mapa de Mortalidad Materna en Costa Rica por Cantón")
+# Título de la app
+st.title("Mapa de Mortalidad Materna en Costa Rica")
 
-# --------- Cargar datos ---------
-@st.cache_data
-def cargar_datos():
-    df = pd.read_excel("df_merge.xlsx")
-    df['canton'] = df['canton'].astype(str).apply(lambda x: unidecode.unidecode(x).upper())
-    return df
-
-# Cargar DataFrame
-df = cargar_datos()
-
-# --------- Cargar y transformar GeoJSON de ArcGIS ---------
+# Cargar datos
 @st.cache_data
 def cargar_geojson():
-    url = (
-        "https://services.arcgis.com/LjCtRQt1uf8M6LGR/arcgis/rest/services/"
-        "Cantones_CR/FeatureServer/0/query?where=1%3D1&outFields=*&outSR=4326&f=json"
-    )
-    resp = requests.get(url)
-    arcgis = resp.json()
-    features = []
-    for feat in arcgis.get('features', []):
-        geom = feat.get('geometry')
-        props = feat.get('attributes')
-        feature = {
-            'type': 'Feature',
-            'geometry': geom,
-            'properties': props,
-        }
-        features.append(feature)
-    geojson = {'type': 'FeatureCollection', 'features': features}
-    return geojson
+    return gpd.read_file("costaricacantonesv10.geojson")
 
-# Cargar GeoJSON
-geojson_data = cargar_geojson()
+@st.cache_data
+def cargar_excel():
+    return pd.read_excel("df_merge.xlsx")
 
-# --------- Interfaz de usuario ---------
-años = sorted(df['year'].unique())
-año_sel = st.selectbox("Selecciona el año:", años)
+gdf = cargar_geojson()
+df = cargar_excel()
 
-df_f = df[df['year'] == año_sel]
+# Filtrar años desde 2017
+df = df[df['year'] >= 2017]
 
-# --------- Crear el mapa ---------
+# Mostrar selección de año
+anios_disponibles = sorted(df['year'].unique())
+anio_seleccionado = st.selectbox("Selecciona un año", anios_disponibles)
+
+# Filtrar dataframe según año seleccionado
+df_filtrado = df[df['year'] == anio_seleccionado]
+
+# Unir DataFrame con GeoDataFrame
+gdf_merged = gdf.merge(df_filtrado, how="left", left_on="NAME_2", right_on="canton")
+
+# Crear mapa centrado en Costa Rica
 m = folium.Map(location=[9.7489, -83.7534], zoom_start=8)
 
-# Choropleth para tasa de mortalidad
-folium.Choropleth(
-    geo_data=geojson_data,
-    name="Tasa Mortalidad Materna",
-    data=df_f,
-    columns=["canton", "tasa_mortalidad_materna"],
-    key_on="feature.properties.NOM_CANTON",
-    fill_color="YlOrRd",
-    fill_opacity=0.7,
-    line_opacity=0.2,
-    legend_name="Tasa Mortalidad Materna",
-    nan_fill_color="lightgray"
-).add_to(m)
-
-# Añadir tooltips con tasa y defunciones
-for feat in geojson_data['features']:
-    props = feat['properties']
-    nombre = unidecode.unidecode(str(props.get('NOM_CANTON', ''))).upper()
-    datos = df_f[df_f['canton'] == nombre]
-    if not datos.empty:
-        tasa = datos.iloc[0]['tasa_mortalidad_materna']
-        defs = datos.iloc[0]['cantidad_defunciones_maternas']
-        popup = f"<b>{nombre}</b><br>Tasa: {tasa}<br>Defunciones: {defs}"
+# Definir la función de color según tasa de mortalidad materna
+def color_por_tasa(tasa):
+    if pd.isnull(tasa):
+        return 'gray'
+    elif tasa == 0:
+        return 'green'
+    elif tasa < 20:
+        return 'orange'
     else:
-        popup = f"<b>{nombre}</b><br>Sin datos"
+        return 'red'
+
+# Agregar polígonos al mapa
+for _, row in gdf_merged.iterrows():
+    color = color_por_tasa(row['tasa_mortalidad_materna'])
     folium.GeoJson(
-        feat,
-        style_function=lambda x: {'fillOpacity': 0, 'weight': 0},
-        tooltip=folium.Tooltip(popup)
+        row['geometry'],
+        style_function=lambda feature, color=color: {
+            'fillColor': color,
+            'color': 'black',
+            'weight': 1,
+            'fillOpacity': 0.5
+        },
+        tooltip=folium.Tooltip(f"""
+            <strong>Cantón:</strong> {row['NAME_2']}<br>
+            <strong>Tasa Mortalidad Materna:</strong> {row['tasa_mortalidad_materna']}<br>
+            <strong>Defunciones Maternas:</strong> {row['cantidad_defunciones_maternas']}
+        """)
     ).add_to(m)
 
-# Mostrar el mapa
-st_folium(m, width=900, height=600)
+# Mostrar mapa en Streamlit
+st_folium(m, width=800, height=600)
