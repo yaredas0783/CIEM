@@ -30,6 +30,7 @@ def get_geodata():
     return gdf
 
 gdf = get_geodata()
+st.write(gdf.columns)
 
 # --- 3. Sidebar con controles ---
 st.sidebar.header("Filtros")
