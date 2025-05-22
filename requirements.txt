@@ -4,4 +4,7 @@ geopandas
 folium
 streamlit-folium
 unidecode
-openpyxl
+openpyxl  
+fiona     
+shapely   
+pyproj    
