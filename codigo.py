@@ -15,7 +15,7 @@ st.title("📊 Mortalidad Materna por Cantón (2017-2023)")
 @st.cache_data
 def load_data():
     # Cargar Excel y limpiar nombres de cantones
-    df = pd.read_excel("df_merge.xlsx")
+    df = pd.read_excel("df_merge.xlsx", engine="openpyxl")
     df["canton"] = df["canton"].str.upper().apply(unidecode)
     return df
 
