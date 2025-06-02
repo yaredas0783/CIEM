@@ -7,7 +7,7 @@ import plotly.express as px
 import io
 
 # Título de la app
-st.title("📊 Mapa y Estadísticas de Mortalidad Materna en Costa Rica")
+st.title("📊 Mapa y Estadísticas de Mortalidad Materna en Costa Rica (Tasa por cien mil habitantes).")
 
 # Cargar datos con caché
 @st.cache_data
@@ -66,7 +66,7 @@ def color_por_tasa(tasa):
 
 # Añadir polígonos al mapa
 for _, row in gdf_merged.iterrows():
-    color = color_por_tasa(row['tasa_mortalidad_materna'])
+    color = color_por_tasa(row['tasa_mortalidad_maternapor_cienmil'])
     folium.GeoJson(
         row['geometry'],
         style_function=lambda feature, color=color: {
@@ -77,7 +77,7 @@ for _, row in gdf_merged.iterrows():
         },
         tooltip=folium.Tooltip(f"""
             <strong>Cantón:</strong> {row['NAME_2']}<br>
-            <strong>Tasa Mortalidad Materna:</strong> {row['tasa_mortalidad_materna']}<br>
+            <strong>Tasa Mortalidad Materna:</strong> {row['tasa_mortalidad_maternapor_cienmil']}<br>
             <strong>Defunciones Maternas:</strong> {row['cantidad_defunciones_maternas']}
         """)
     ).add_to(m)
@@ -105,14 +105,14 @@ df_seleccion = df[(df['canton'].isin(cantones_seleccionados)) & (df['year'].isin
 # Mostrar tabla con valores absolutos
 st.write("### 📋 Tabla de valores")
 if not df_seleccion.empty:
-    st.dataframe(df_seleccion[['year', 'canton', 'tasa_mortalidad_materna', 'cantidad_defunciones_maternas']].sort_values(['canton', 'year']))
+    st.dataframe(df_seleccion[['year', 'canton', 'tasa_mortalidad_maternapor_cienmil', 'cantidad_defunciones_maternas']].sort_values(['canton', 'year']))
 else:
     st.write("No hay datos para la selección actual.")
 
 # Resumen estadístico
 st.write("### 📊 Resumen Estadístico")
 if not df_seleccion.empty:
-    resumen = df_seleccion[['tasa_mortalidad_materna', 'cantidad_defunciones_maternas']].describe()
+    resumen = df_seleccion[['tasa_mortalidad_maternapor_cienmil', 'cantidad_defunciones_maternas']].describe()
     st.dataframe(resumen)
 else:
     st.write("No hay datos para mostrar resumen.")
@@ -120,9 +120,9 @@ else:
 # Gráfico de líneas: Tasa Mortalidad Materna
 st.write("### 📈 Serie: Tasa de Mortalidad Materna")
 if not df_seleccion.empty:
-    fig_tasa = px.line(df_seleccion, x='year', y='tasa_mortalidad_materna', color='canton',
-                       markers=True, labels={'tasa_mortalidad_materna': 'Tasa'},
-                       title='Tasa de Mortalidad Materna por Cantón y Año')
+    fig_tasa = px.line(df_seleccion, x='year', y='tasa_mortalidad_maternapor_cienmil', color='canton',
+                       markers=True, labels={'tasa_mortalidad_maternapor_cienmil': 'Tasa por cien mil habitantes'},
+                       title='Tasa de Mortalidad Materna por cien mil habitantes por Cantón y Año')
     st.plotly_chart(fig_tasa, use_container_width=True)
 else:
     st.write("No hay datos para la selección actual.")
